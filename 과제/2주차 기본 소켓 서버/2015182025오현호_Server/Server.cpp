@@ -49,7 +49,6 @@ int main()
 	ZeroMemory(&c_addr, sizeof(c_addr));
 	c_addr.sin_family = AF_INET;
 	c_addr.sin_port = htons(PORT_NUM);
-	inet_pton(AF_INET, "127.0.0.1", &c_addr.sin_addr);
 	int addr_l = sizeof(c_addr);
 
 	SOCKET c_socket = WSAAccept(s_socket, reinterpret_cast<SOCKADDR*>(&c_addr), &addr_l, NULL, NULL);
@@ -57,6 +56,10 @@ int main()
 	{
 		error_display("accept from server", WSAGetLastError());
 		exit(-1);
+	}
+	else
+	{
+		cout << "¼º°ø\n";
 	}
 
 	Vec2 pos;
