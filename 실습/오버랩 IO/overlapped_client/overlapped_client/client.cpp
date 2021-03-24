@@ -1,107 +1,50 @@
-/*
-## 소켓 서버 : 1 v n - overlapped callback
-1. socket()            : 소켓생성
-2. connect()        : 연결요청
-3. read()&write()
-    WIN recv()&send    : 데이터 읽고쓰기
-4. close()
-    WIN closesocket    : 소켓종료
-*/
-
 #include <iostream>
-#include <winsock2.h>
+#include <WS2tcpip.h>
+using namespace std;
+#pragma comment(lib, "WS2_32.LIB")
+constexpr short SERVER_PORT = 3500;
+constexpr int BUF_SIZE = 200;
+WSAOVERLAPPED s_over;
+SOCKET s_socket;
+WSABUF s_wsabuf[1];
+char s_buf[BUF_SIZE];
 
-#pragma comment(lib, "Ws2_32.lib")
-
-#define MAX_BUFFER        1024
-#define SERVER_IP        "127.0.0.1"
-#define SERVER_PORT        3500
-
-struct SOCKETINFO
+void CALLBACK send_callback(DWORD err, DWORD num_bytes, LPWSAOVERLAPPED over, DWORD flags);
+void do_send_message()
 {
-    WSAOVERLAPPED overlapped;
-    WSABUF dataBuffer;
-    int receiveBytes;
-    int sendBytes;
-};
-
-SOCKET clientSocket;
-SOCKETINFO* socketInfo;
-char messageBuffer[MAX_BUFFER];
-
-void CALLBACK send_cb(DWORD err, DWORD num_byte, LPOVERLAPPED over, DWORD recv_flag)
+	cout << "Enter Messsage: ";
+	cin.getline(s_buf, BUF_SIZE - 1);
+	s_wsabuf[0].buf = s_buf;
+	s_wsabuf[0].len = static_cast<int>(strlen(s_buf)) + 1;
+	memset(&s_over, 0, sizeof(s_over));
+	WSASend(s_socket, s_wsabuf, 1, 0, 0, &s_over, send_callback);
+}
+void CALLBACK recv_callback(DWORD err, DWORD num_bytes, LPWSAOVERLAPPED over, DWORD flags)
 {
-    if (num_byte > 0)
-    {
-        printf("TRACE - Send message : %s (%d bytes)\n", messageBuffer, sendBytes);
-        // 3-2. 데이터 읽기
-        int receiveBytes = recv(clientSocket, messageBuffer, MAX_BUFFER, 0);
-        if (receiveBytes > 0)
-        {
-            printf("TRACE - Receive message : %s (%d bytes)\n* Enter Message\n->", messageBuffer, receiveBytes);
-        }
-    }
+	cout << "Server Sent: " << s_buf << endl;
+	do_send_message();
+}
+void CALLBACK send_callback(DWORD err, DWORD num_bytes, LPWSAOVERLAPPED over, DWORD flags)
+{
+	s_wsabuf[0].len = BUF_SIZE;
+	DWORD r_flag = 0; // 리시브는 무조건 플레그 필요함, 포인터로 연결해줘야해서
+	memset(over, 0, sizeof(*over));
+	WSARecv(s_socket, s_wsabuf, 1, 0, &r_flag, over, recv_callback);
 }
 
 int main()
 {
-    // Winsock Start - winsock.dll 로드
-    WSADATA WSAData;
-    if (WSAStartup(MAKEWORD(2, 0), &WSAData) != 0)
-    {
-        printf("Error - Can not load 'winsock.dll' file\n");
-        return 1;
-    }
-
-    // 1. 소켓생성
-    = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-    if (clientSocket == INVALID_SOCKET)
-    {
-        printf("Error - Invalid socket\n");
-        return 1;
-    }
-
-    // 서버정보 객체설정
-    SOCKADDR_IN serverAddr;
-    memset(&serverAddr, 0, sizeof(SOCKADDR_IN));
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(SERVER_PORT);
-    serverAddr.sin_addr.S_un.S_addr = inet_addr(SERVER_IP); // 컴파일 에러 가능성 있음
-
-    // 2. 연결요청
-    if (connect(clientSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
-    {
-        printf("Error - Fail to connect\n");
-        // 4. 소켓종료
-        closesocket(clientSocket);
-        // Winsock End
-        WSACleanup();
-        return 1;
-    }
-    else
-    {
-        printf("Server Connected\n* Enter Message\n->");
-    }
-
-    DWORD sendBytes;
-    DWORD receiveBytes;
-    DWORD flags;
-
-    while (1)
-    {
-        // 메시지 입력
-        std::cin.getline(messageBuffer, MAX_BUFFER - 1);
-        int bufferLen = strlen(messageBuffer)+1; // strlen는 \0을 포함 안하고 카운트하기 때문에 +1 해줘야함
-
-        socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));
-        memset((void*)socketInfo, 0x00, sizeof(struct SOCKETINFO));
-        socketInfo->dataBuffer.len = bufferLen;
-        socketInfo->dataBuffer.buf = messageBuffer;
-
-        // 3-1. 데이터 쓰기
-        int sendBytes = WSASend(clientSocket, &socketInfo->dataBuffer, 1, NULL,0, &socketInfo->overlapped,recv_cb);
-    }
-    closesocket(clientSocket);
-    WSACleanup();
-    return 0;
+	WSADATA WSAData;
+	WSAStartup(MAKEWORD(2, 2), &WSAData);
+	s_socket = WSASocket(AF_INET, SOCK_STREAM, 0, 0, 0, WSA_FLAG_OVERLAPPED);
+	SOCKADDR_IN svr_addr;
+	memset(&svr_addr, 0, sizeof(svr_addr));
+	svr_addr.sin_family = AF_INET;
+	svr_addr.sin_port = htons(SERVER_PORT);
+	inet_pton(AF_INET, "127.0.0.1", &svr_addr.sin_addr);
+	WSAConnect(s_socket, reinterpret_cast<sockaddr*>(&svr_addr), sizeof(svr_addr), 0, 0, 0, 0);
+	do_send_message();
+	while (true) SleepEx(100, true);
+	closesocket(s_socket);
+	WSACleanup();
 }
