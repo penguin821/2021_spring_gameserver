@@ -3,16 +3,24 @@
 using namespace std;
 #include <WS2tcpip.h>
 #include <ctime>
+#include <vector>
 #pragma comment(lib, "Ws2_32.lib")
 
 constexpr int MAX_BUFFER = 1024;
 constexpr short SERVER_PORT = 3500;
+constexpr short MAX_PLAYER = 10;
 
 struct Vec2
 {
 	short x;
 	short y;
 };
+
+struct all_player_info
+{
+	Vec2 pos;
+};
+all_player_info players[10];
 
 struct SESSION // 技记
 {
@@ -23,6 +31,7 @@ struct SESSION // 技记
 
 	Vec2 pos;
 	char dir;
+	short count;
 };
 
 map <SOCKET, SESSION> clients;
@@ -37,6 +46,8 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 	if (dataBytes == 0) // 佬篮 单捞磐 樊
 	{
 		closesocket(clients[client_s].socket);
+		players[clients[client_s].count].pos.x = -600;
+		players[clients[client_s].count].pos.y = -600;
 		clients.erase(client_s);
 		return;
 	}  // 努扼捞攫飘啊 closesocket阑 沁阑 版快
@@ -52,7 +63,7 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 		break;
 	case 's':
 	case 'S':
-		if (7 != clients[client_s].pos.y)
+		if (420 != clients[client_s].pos.y)
 			clients[client_s].pos.y += 60;
 		break;
 	case 'a':
@@ -62,15 +73,18 @@ void CALLBACK recv_callback(DWORD Error, DWORD dataBytes, LPWSAOVERLAPPED overla
 		break;
 	case 'd':
 	case 'D':
-		if (7 != clients[client_s].pos.x)
+		if (420 != clients[client_s].pos.x)
 			clients[client_s].pos.x += 60;
 		break;
 	}
 
 	memset(&(clients[client_s].overlapped), 0, sizeof(WSAOVERLAPPED));
 	Vec2 n_pos = clients[client_s].pos;
-	clients[client_s].dataBuffer.buf = reinterpret_cast<char*>(&n_pos); // 茄 技记 积己 场
-	clients[client_s].dataBuffer.len = sizeof(clients[client_s].pos);
+	players[clients[client_s].count].pos.x = clients[client_s].pos.x;
+	players[clients[client_s].count].pos.y = clients[client_s].pos.y;
+
+	clients[client_s].dataBuffer.buf = reinterpret_cast<char*>(&players); // 茄 技记 积己 场
+	clients[client_s].dataBuffer.len = sizeof(players);
 	WSASend(client_s, &(clients[client_s].dataBuffer), 1, NULL, 0, overlapped, send_callback);
 }
 
@@ -113,23 +127,41 @@ int main()
 	int addrLen = sizeof(SOCKADDR_IN);
 	memset(&clientAddr, 0, addrLen);
 
+	for (int i = 0; i < 10; i++)
+	{
+		players[i].pos.x = -600;
+		players[i].pos.y = -600;
+	}
+
+	static int count = 0;
 	while (true)
 	{
-		SOCKET clientSocket = WSAAccept(listenSocket, (struct sockaddr*)&clientAddr, &addrLen, NULL, NULL);
-		clients[clientSocket] = SESSION{};
-		clients[clientSocket].socket = clientSocket;
-		clients[clientSocket].pos.x = (rand() % 8) * 60;
-		clients[clientSocket].pos.y = (rand() % 8) * 60;
-		clients[clientSocket].dataBuffer.len = sizeof(clients[clientSocket].pos);
-		Vec2 n_pos;
-		n_pos.x = clients[clientSocket].pos.x;
-		n_pos.y = clients[clientSocket].pos.y;
-		clients[clientSocket].dataBuffer.buf = reinterpret_cast<char*>(&n_pos); // 茄 技记 积己 场
-		clients[clientSocket].dataBuffer.len = sizeof(n_pos); // 茄 技记 积己 场
-		memset(&clients[clientSocket].overlapped, 0, sizeof(WSAOVERLAPPED));
-		cout << "New Client [" << clientSocket << "] connected!\n";
-		WSASend(clients[clientSocket].socket, &clients[clientSocket].dataBuffer, 1, NULL,
-			0, &(clients[clientSocket].overlapped), send_callback);		
+		if (clients.size() <= 10)
+		{
+			SOCKET clientSocket = WSAAccept(listenSocket, (struct sockaddr*)&clientAddr, &addrLen, NULL, NULL);
+			clients[clientSocket] = SESSION{};
+			clients[clientSocket].socket = clientSocket;
+			clients[clientSocket].pos.x = (rand() % 8) * 60;
+			clients[clientSocket].pos.y = (rand() % 8) * 60;
+			clients[clientSocket].count = count;
+			clients[clientSocket].dataBuffer.len = sizeof(clients[clientSocket].pos);
+			Vec2 n_pos;
+			n_pos.x = clients[clientSocket].pos.x;
+			n_pos.y = clients[clientSocket].pos.y;
+
+			players[clients[clientSocket].count].pos.x = clients[clientSocket].pos.x;
+			players[clients[clientSocket].count].pos.y = clients[clientSocket].pos.y;
+
+			clients[clientSocket].dataBuffer.buf = reinterpret_cast<char*>(&players); // 茄 技记 积己 场
+			clients[clientSocket].dataBuffer.len = sizeof(players); // 茄 技记 积己 场
+			memset(&clients[clientSocket].overlapped, 0, sizeof(WSAOVERLAPPED));
+
+			cout << "New Client [" << clientSocket << "] connected!\n";
+			WSASend(clients[clientSocket].socket, &clients[clientSocket].dataBuffer, 1, NULL,
+				0, &(clients[clientSocket].overlapped), send_callback);
+
+			count++;
+		}
 	}
 	closesocket(listenSocket);
 	WSACleanup();

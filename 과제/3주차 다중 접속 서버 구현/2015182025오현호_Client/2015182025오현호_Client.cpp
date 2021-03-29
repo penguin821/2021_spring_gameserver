@@ -15,6 +15,8 @@ SOCKET s_socket;
 
 constexpr int MAX_BUFFER = 1024;
 constexpr short SERVER_PORT = 3500;
+bool isLogin = false;
+short my_id;
 
 // 이 코드 모듈에 포함된 함수의 선언을 전달합니다:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -34,11 +36,18 @@ void error_display(const char* msg, int err_no)
     wcout << L"에러 " << lpMsgBuf << endl;
     LocalFree(lpMsgBuf);
 }
+
 struct Vec2
 {
     short x;
     short y;
 };
+
+struct all_player_info
+{
+    Vec2 pos;
+};
+all_player_info players[10];
 
 struct Key
 {
@@ -160,10 +169,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     Vec2 pos;
-    Key input_key;
-    static short PieceX = 0, PieceY = 0;
+    static Key input_key{};
     switch (message)
     {
+    case WM_CREATE:
+        SetTimer(hWnd, 0, 0, NULL);
+        break;
     case WM_CHAR:
         if (wParam == VK_RETURN && !client_ip.empty())
         {
@@ -182,8 +193,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             else
             {
                 WSABUF r_wsabuf;
-                r_wsabuf.buf = reinterpret_cast<char*>(&pos);
-                r_wsabuf.len = sizeof(pos);
+                r_wsabuf.buf = reinterpret_cast<char*>(&players);
+                r_wsabuf.len = sizeof(players);
                 DWORD recv_bytes;
                 DWORD r_flag = 0;
                 int retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
@@ -192,9 +203,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     error_display("recv from client", WSAGetLastError());
                     exit(-1);
                 }
-
-                PieceX = pos.x;
-                PieceY = pos.y;
+                isLogin = true;
             }
         }
         else if (wParam == VK_BACK)
@@ -224,142 +233,146 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
-    case WM_KEYDOWN:
-        switch (wParam)
+    case WM_TIMER:
+    {
+        switch (input_key.key)
         {
             WSABUF s_wsabuf;
             DWORD send_bytes;
-        case VK_UP:
-            if (PieceY == 0)
-                break;
-            else
+        case 'w':
+        {
+            s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
+            s_wsabuf.len = sizeof(input_key);
+            int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
+            if (SOCKET_ERROR == retval)
             {
-                input_key.key = 'w';
-                s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
-                s_wsabuf.len = sizeof(input_key);
-                int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
-                if (SOCKET_ERROR == retval)
-                {
-                    error_display("send from client", WSAGetLastError());
-                    exit(-1);
-                }
-
-
-                WSABUF r_wsabuf;
-                r_wsabuf.buf = reinterpret_cast<char*>(&pos);
-                r_wsabuf.len = sizeof(pos);
-                DWORD recv_bytes;
-                DWORD r_flag = 0;
-                retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
-                if (SOCKET_ERROR == retval)
-                {
-                    error_display("recv from client", WSAGetLastError());
-                    exit(-1);
-                }
-
-                PieceX = pos.x;
-                PieceY = pos.y;
+                error_display("send from client", WSAGetLastError());
+                exit(-1);
             }
-            break;
-        case VK_DOWN:
-            if (PieceY == 420)
-                break;
-            else
+
+
+            WSABUF r_wsabuf;
+            r_wsabuf.buf = reinterpret_cast<char*>(&players);
+            r_wsabuf.len = sizeof(players);
+            DWORD recv_bytes;
+            DWORD r_flag = 0;
+            retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
+            if (SOCKET_ERROR == retval)
             {
-                input_key.key = 's';
-                s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
-                s_wsabuf.len = sizeof(input_key);
-                int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
-                if (SOCKET_ERROR == retval)
-                {
-                    error_display("send from client", WSAGetLastError());
-                    exit(-1);
-                }
-
-
-                WSABUF r_wsabuf;
-                r_wsabuf.buf = reinterpret_cast<char*>(&pos);
-                r_wsabuf.len = sizeof(pos);
-                DWORD recv_bytes;
-                DWORD r_flag = 0;
-                retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
-                if (SOCKET_ERROR == retval)
-                {
-                    error_display("recv from client", WSAGetLastError());
-                    exit(-1);
-                }
-
-                PieceX = pos.x;
-                PieceY = pos.y;
+                error_display("recv from client", WSAGetLastError());
+                exit(-1);
             }
-            break;
-        case VK_LEFT:
-            if (PieceX == 0)
-                break;
-            else
-            {
-                input_key.key = 'a';
-                s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
-                s_wsabuf.len = sizeof(input_key);
-                int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
-                if (SOCKET_ERROR == retval)
-                {
-                    error_display("send from client", WSAGetLastError());
-                    exit(-1);
-                }
-
-
-                WSABUF r_wsabuf;
-                r_wsabuf.buf = reinterpret_cast<char*>(&pos);
-                r_wsabuf.len = sizeof(pos);
-                DWORD recv_bytes;
-                DWORD r_flag = 0;
-                retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
-                if (SOCKET_ERROR == retval)
-                {
-                    error_display("recv from client", WSAGetLastError());
-                    exit(-1);
-                }
-
-                PieceX = pos.x;
-                PieceY = pos.y;
-            }
-            break;
-        case VK_RIGHT:
-            if (PieceX == 420)
-                break;
-            else
-            {
-                input_key.key = 'd';
-                s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
-                s_wsabuf.len = sizeof(input_key);
-                int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
-                if (SOCKET_ERROR == retval)
-                {
-                    error_display("send from client", WSAGetLastError());
-                    exit(-1);
-                }
-
-
-                WSABUF r_wsabuf;
-                r_wsabuf.buf = reinterpret_cast<char*>(&pos);
-                r_wsabuf.len = sizeof(pos);
-                DWORD recv_bytes;
-                DWORD r_flag = 0;
-                retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
-                if (SOCKET_ERROR == retval)
-                {
-                    error_display("recv from client", WSAGetLastError());
-                    exit(-1);
-                }
-
-                PieceX = pos.x;
-                PieceY = pos.y;
-            }
-            break;
+            input_key.key = 'g';
         }
-        InvalidateRect(hWnd, NULL, TRUE);
         break;
+        case 's':
+        {
+            s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
+            s_wsabuf.len = sizeof(input_key);
+            int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
+            if (SOCKET_ERROR == retval)
+            {
+                error_display("send from client", WSAGetLastError());
+                exit(-1);
+            }
+            WSABUF r_wsabuf;
+            r_wsabuf.buf = reinterpret_cast<char*>(&players);
+            r_wsabuf.len = sizeof(players);
+            DWORD recv_bytes;
+            DWORD r_flag = 0;
+            retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
+            if (SOCKET_ERROR == retval)
+            {
+                error_display("recv from client", WSAGetLastError());
+                exit(-1);
+            }
+            input_key.key = 'g';
+        }
+        break;
+        case 'a':
+        {
+            s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
+            s_wsabuf.len = sizeof(input_key);
+            int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
+            if (SOCKET_ERROR == retval)
+            {
+                error_display("send from client", WSAGetLastError());
+                exit(-1);
+            }
+
+
+            WSABUF r_wsabuf;
+            r_wsabuf.buf = reinterpret_cast<char*>(&players);
+            r_wsabuf.len = sizeof(players);
+            DWORD recv_bytes;
+            DWORD r_flag = 0;
+            retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
+            if (SOCKET_ERROR == retval)
+            {
+                error_display("recv from client", WSAGetLastError());
+                exit(-1);
+            }
+            input_key.key = 'g';
+        }
+        break;
+        case 'd':
+        {
+            s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
+            s_wsabuf.len = sizeof(input_key);
+            int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
+            if (SOCKET_ERROR == retval)
+            {
+                error_display("send from client", WSAGetLastError());
+                exit(-1);
+            }
+
+
+            WSABUF r_wsabuf;
+            r_wsabuf.buf = reinterpret_cast<char*>(&players);
+            r_wsabuf.len = sizeof(players);
+            DWORD recv_bytes;
+            DWORD r_flag = 0;
+            retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
+            if (SOCKET_ERROR == retval)
+            {
+                error_display("recv from client", WSAGetLastError());
+                exit(-1);
+            }
+            input_key.key = 'g';
+        }
+        break;
+        default:
+        {
+            if (true == isLogin)
+            {
+                input_key.key = 'g';
+                s_wsabuf.buf = reinterpret_cast<char*>(&input_key.key);
+                s_wsabuf.len = sizeof(input_key);
+                int retval = WSASend(s_socket, &s_wsabuf, 1, &send_bytes, 0, 0, 0);
+                if (SOCKET_ERROR == retval)
+                {
+                    error_display("send from client", WSAGetLastError());
+                    exit(-1);
+                }
+
+                WSABUF r_wsabuf;
+                r_wsabuf.buf = reinterpret_cast<char*>(&players);
+                r_wsabuf.len = sizeof(players);
+                DWORD recv_bytes;
+                DWORD r_flag = 0;
+                retval = WSARecv(s_socket, &r_wsabuf, 1, &recv_bytes, &r_flag, 0, 0);
+                if (SOCKET_ERROR == retval)
+                {
+                    error_display("recv from client", WSAGetLastError());
+                    exit(-1);
+                }
+                break;
+            }
+        }
+        }
+    }
+    InvalidateRect(hWnd, NULL, FALSE);
+    break;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -375,11 +388,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             graphics.DrawImage(&image, 0, 0);
 
-            Ellipse(hdc, 0 + PieceX, 0 + PieceY, 60 + PieceX, 60 + PieceY);
+            for (int i = 0; i < 10; i++)
+            {
+                Ellipse(hdc, 0 + players[i].pos.x, 0 + players[i].pos.y, 60 + players[i].pos.x, 60 + players[i].pos.y);
+            }
+
             RECT rt = { 100,100,400,300 };
             DrawText(hdc, textBox.c_str(), -1, &rt, DT_CENTER | DT_WORDBREAK);
-
+            //InvalidateRect(hWnd, NULL, FALSE);
             EndPaint(hWnd, &ps);
+        }
+        break;
+    case WM_KEYDOWN:
+        switch (wParam)
+        {
+        case VK_UP:
+        {
+            input_key.key = 'w';
+        }
+        break;
+        case VK_DOWN:
+        {
+            input_key.key = 's';
+        }
+        break;
+        case VK_LEFT:
+        {
+            input_key.key = 'a';
+        }
+        break;
+        case VK_RIGHT:
+        {
+            input_key.key = 'd';
+        }
+        break;
         }
         break;
     case WM_DESTROY:
