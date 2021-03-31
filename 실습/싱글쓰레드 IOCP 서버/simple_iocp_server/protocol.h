@@ -2,17 +2,18 @@
 constexpr int MAX_BUFFER = 1024;
 constexpr short SERVER_PORT = 3500;
 constexpr int MAX_NAME = 50;
+constexpr int MAX_USER = 10;
 
 constexpr int BOARD_WIDTH = 8;
 constexpr int BOARD_HEIGHT = 8;
 
-constexpr unsigned char C2S_PACKET_LOGIN =		 1;
-constexpr unsigned char C2S_PACKET_MOVE =		 2;
+constexpr unsigned char C2S_PACKET_LOGIN = 1;
+constexpr unsigned char C2S_PACKET_MOVE = 2;
 
-constexpr unsigned char S2C_PACKET_LOGIN_INFO =	 3;
-constexpr unsigned char S2C_PACKET_PC_LOGIN =	 4;
-constexpr unsigned char S2C_PACKET_PC_MOVE =	 5;
-constexpr unsigned char S2C_PACKET_PC_LOGOUT =	 6;
+constexpr unsigned char S2C_PACKET_LOGIN_INFO = 3;
+constexpr unsigned char S2C_PACKET_PC_LOGIN = 4;
+constexpr unsigned char S2C_PACKET_PC_MOVE = 5;
+constexpr unsigned char S2C_PACKET_PC_LOGOUT = 6;
 
 #pragma pack (push, 1)
 struct c2s_packet_login
